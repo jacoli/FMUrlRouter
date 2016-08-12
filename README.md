@@ -23,6 +23,8 @@ Or copy `*.h *.m` files in `FMUrlRouter` folder to your project.
 
 * Setup
 
+Setup in `AppDelegate`
+
 ```
 	#define URL_ROUTER_LOCAL_SCHEME (@"fanmei")
 
@@ -30,6 +32,8 @@ Or copy `*.h *.m` files in `FMUrlRouter` folder to your project.
                                        	webContainerClass:FMWebViewController.class
                                          	nativeUrlScheme:URL_ROUTER_LOCAL_SCHEME];
 ```
+
+Setup in UIViewController subclass
 
 ```
 + (void)load {
@@ -45,10 +49,23 @@ Or copy `*.h *.m` files in `FMUrlRouter` folder to your project.
 
 * Use
 
+Open native page
+
 ```
 	[UrlRouter openPage:@"about_us"];
 
 ```
+
+Open page with callback
+
+```
+    WS(weakSelf)
+    [UrlRouter openPage:@"comments_list" withParams:@{@"_id":self.activityId} withCallback:^(NSDictionary *userInfo) {
+        [weakSelf getComments];
+    }];
+```
+
+Open native url
 
 ```
 	    NSString *query = @"placeName=江户前寿司（黄龙店）&placeAddr=曙光路49号（至尊鲨鱼边）&placeLocation=120.14334,30.26593";
@@ -57,6 +74,16 @@ Or copy `*.h *.m` files in `FMUrlRouter` folder to your project.
     [UrlRouter openUrl:[NSURL URLWithString:urlStr]];
 
 ```
+
+Open url
+
+```
+	NSString *url = "https://github.com/jacoli/FMUrlRouter";
+	[UrlRouter openUrl:[NSURL URLWithString:url]];
+
+```
+
+
 
 ## Requirements
 
