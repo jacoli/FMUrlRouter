@@ -7,27 +7,83 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "UIViewController+UrlRouter.h"
+#import "UrlRouterConfig.h"
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
- *  页面统一跳转管理器，使用标准的URL规范，支持Http、Https、本地页面Scheme等协议
- *  用于页面间的强解藕
- *  TODO 没有参数校验机制，增加对tabcontroller的支持
+ *  页面Pop的Callback回调
+ */
+typedef void (^FMUrlPopedCallback)(NSDictionary * _Nullable result);
+
+@interface UIViewController (UrlRouter)
+
+/**
+ *  当前页面名称，不为空
+ */
+@property (nonatomic, copy, readonly) NSString *vcPageName;
+
+/**
+ *  额外参数，可选
+ */
+@property (nonatomic, strong, readonly) NSDictionary *urlParams;
+
+/**
+ *  上个页面名称，必选
+ */
+@property (nonatomic, copy, readonly) NSString *fromPage;
+
+/**
+ *  url链接地址，可选
+ */
+@property (nonatomic, copy, readonly) NSString *h5Url;
+
+/**
+ *  回调Block，可选
+ */
+@property (nonatomic, copy, readonly) FMUrlPopedCallback urlCallback;
+
+/**
+ *  是否允许在导航栈中存在多个实例
+ */
++ (BOOL)isSingletonPage;
+
+@end
+
+/**
+ Native pages or H5 pages can decoupled by `UrlRouter` based on url.
  */
 @interface UrlRouter : NSObject
 
 + (instancetype)sharedInstance;
 
+#pragma mark - Setup
+
 /**
- *  初始化
- *
- *  @param navigationController 导航控制器
- *  @param webContainerClass    H5容器类
- *  @param nativeUrlScheme      Native页面Url的Scheme
+ Register native page meta.
+
+ @param pageName page name
+ @param clazz view controller class meta
+ @param isUrlExported whether page can opened by url
  */
-- (void)startupWithNavController:(UINavigationController *)navigationController
-               webContainerClass:(Class)webContainerClass
-                 nativeUrlScheme:(NSString *)nativeUrlScheme;
+- (void)registerPage:(NSString *)pageName forViewControllerClass:(Class)clazz isUrlExported:(BOOL)isUrlExported;
+
+/**
+ Start up
+
+ @param config configurations
+ @param pageNames intial pages will created auto by the names, and names must registered.
+ @return instance of root container
+ */
+- (UIViewController *)startupWithConfig:(UrlRouterConfig *_Nonnull)config andInitialPages:(NSArray *)pageNames;
+
+#pragma mark - Container instance
+
+@property (nullable, nonatomic, strong, readonly) UINavigationController *navigationController;
+
+@property (nullable, nonatomic, strong, readonly) UITabBarController *tabBarController;
+
+#pragma mark - Others
 
 /**
  *  处理App Url跳转
@@ -37,49 +93,55 @@
 - (BOOL)handleApplicationUrl:(NSURL *)url;
 
 /**
- *  注册Native页面
- */
-+ (void)registerPage:(NSString *)pageName forViewControllerClass:(Class)clazz;
-
-/**
- *  页面是否存在
+ *  根据页面名称判断页面是否存在
  */
 - (BOOL)isPageExists:(NSString *)pageName;
 
 /**
- *  当前顶部页面名称
+ *  顶部页面名称
  */
-- (NSString *)currentPageName;
+- (NSString *)topPageName;
 
-#pragma mark - Open
+/**
+ 判断视图控制器是否在顶部
+ */
+- (BOOL)isViewControllerAtTop:(UIViewController *)viewController;
+
+#pragma mark - Open native pages by name
+
+- (void)openPage:(NSString *)pageName;
+- (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params;
+- (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params animated:(BOOL)animated;
+- (BOOL)openPage:(NSString *)pageName withParams:(NSDictionary *)params callback:(FMUrlPopedCallback)callback animated:(BOOL)animated;
 
 /**
  *  打开Native页面
  */
 + (void)openPage:(NSString *)pageName;
 + (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params;
-+ (BOOL)openPage:(NSString *)pageName withparams:(NSDictionary *)params animated:(BOOL)animated;
-+ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params withCallback:(UrlCallback)callback;
++ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params animated:(BOOL)animated;
++ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params withCallback:(FMUrlPopedCallback)callback;
+
+#pragma mark - Open pages by url
+
+- (BOOL)canOpenUrl:(NSURL *)url;
 
 /**
  *  打开Url链接
  */
 + (BOOL)openUrl:(NSURL *)url;
-+ (BOOL)openUrl:(NSURL *)url withParams:(NSDictionary *)params;
 + (BOOL)openUrl:(NSURL *)url animated:(BOOL)animated;
-+ (BOOL)openUrl:(NSURL *)url animated:(BOOL)animated withCallback:(UrlCallback)callback;
++ (BOOL)openUrl:(NSURL *)url animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback;
++ (BOOL)openUrl:(NSURL *)url withParams:(NSDictionary *)params animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback;
 
 #pragma mark - Close
+
+- (void)closePageWithResult:(NSDictionary *__nullable)result animated:(BOOL)animated;
 
 /**
  *  关闭页面
  */
 + (void)closePage;
-
-/**
- *  关闭当前页面以及其它页面
- */
-+ (void)closeSelfAndOtherPages:(NSArray<NSString *> *)otherPages;
 
 /**
  *  关闭页面
@@ -88,4 +150,18 @@
  */
 + (void)closePageWithResult:(NSDictionary *)result;
 
+/**
+ *  关闭当前页面以及其它页面
+ */
+- (void)closeSelfAndOtherPages:(NSArray<NSString *> *)otherPages;
+
+/**
+ 返回到指定页面
+
+ @param pageName pageName
+ */
++ (void)closeToPage:(NSString *)pageName;
+
 @end
+
+NS_ASSUME_NONNULL_END

@@ -8,14 +8,104 @@
 
 #import "UrlRouter.h"
 #import "NSURL+UrlRouter.h"
+#import "NSString+UrlRouter.h"
+#import <objc/runtime.h>
 
 @interface UIViewController (UrlRouter_inner)
+
+/**
+ *  当前页面名称，必选，由UrlRouter统一赋值
+ */
+@property (nonatomic, copy) NSString *vcPageName;
+
+/**
+ *  额外参数，可选
+ */
+@property (nonatomic, strong) NSDictionary *urlParams;
+
+/**
+ *  上个页面名称，必选
+ */
+@property (nonatomic, copy) NSString *fromPage;
+
+/**
+ *  url链接地址，可选
+ */
+@property (nonatomic, copy) NSString *h5Url;
+
+/**
+ *  回调Block，可选
+ */
+@property (nonatomic, copy) FMUrlPopedCallback urlCallback;
 
 - (void)parseInputParams;
 
 @end
 
+@implementation UIViewController (UrlRouter)
+
++ (BOOL)isSingletonPage {
+    return NO;
+}
+
+@end
+
 @implementation UIViewController (UrlRouter_inner)
+
+static int kVCPageName;
+- (NSString *)vcPageName {
+    return objc_getAssociatedObject(self, &kVCPageName);
+}
+
+- (void)setVcPageName:(NSString *)vcPageName {
+    objc_setAssociatedObject(self, &kVCPageName, vcPageName, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+static int kUrlParams;
+- (NSDictionary *)urlParams {
+    NSDictionary *params = objc_getAssociatedObject(self, &kUrlParams);
+    return params ?: @{};
+}
+
+- (void)setUrlParams:(NSDictionary *)urlParams {
+    objc_setAssociatedObject(self, &kUrlParams, urlParams, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+static int kFromPage;
+- (NSString *)fromPage {
+    return objc_getAssociatedObject(self, &kFromPage);
+}
+
+- (void)setFromPage:(NSString *)fromPage {
+    objc_setAssociatedObject(self, &kFromPage, fromPage, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+static int kUrlCallback;
+- (FMUrlPopedCallback)urlCallback {
+    return objc_getAssociatedObject(self, &kUrlCallback);
+}
+
+- (void)setUrlCallback:(FMUrlPopedCallback)urlCallback {
+    objc_setAssociatedObject(self, &kUrlCallback, urlCallback, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+static int kH5Url;
+- (NSString *)h5Url {
+    return objc_getAssociatedObject(self, &kH5Url);
+}
+
+- (void)setH5Url:(NSString *)h5Url {
+    if (h5Url && ![h5Url isKindOfClass:[NSString class]]) {
+        if ([h5Url isKindOfClass:[NSURL class]]) {
+            h5Url = [((NSURL *)h5Url) absoluteString];
+        }
+        else {
+            return;
+        }
+    }
+    
+    objc_setAssociatedObject(self, &kH5Url, h5Url, OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
 
 - (void)parseInputParams {
     if (self.urlParams) {
@@ -32,23 +122,35 @@
 
 @interface UrlRouter ()
 
-@property (nonatomic, strong) Class h5ContainerClass;
-@property (nonatomic, weak) UINavigationController *navigationController;
-
 /**
- *  Native页面配置，key为页面名称kind of NSString，value为类名kind of NSString
+ Configurations of router.
  */
-@property (nonatomic, strong) NSMutableDictionary *nativePages;
+@property (nonatomic, strong) UrlRouterConfig *config;
 
 /**
- *  schemes
+ Instances of root container, kind of UINavigationController, must not nil after startup.
+ */
+@property (nonatomic, strong) UINavigationController *navigationController;
+
+/**
+ Instances of sub root container, kind of UITabBarController, may nil if config.mode is UrlRouterContainerModeOnlyNavigation.
+ */
+@property (nonatomic, strong) UITabBarController *tabBarController;
+
+/**
+ Supported schemes, including user defined native scheme.
  */
 @property (nonatomic, strong) NSMutableArray *supportedSchemes;
 
 /**
- *  Native页面Url的Scheme
+ Meta of native pages, key is page name, kind of NSString, value is view controller class, kind of NSString.
  */
-@property (nonatomic, copy) NSString *nativeUrlScheme;
+@property (nonatomic, strong) NSMutableDictionary *nativePages;
+
+/**
+ Native pages can opened by url, default is NO.
+ */
+@property (nonatomic, strong) NSMutableArray *urlExportedNativePages;
 
 @end
 
@@ -65,27 +167,147 @@
 
 - (instancetype)init {
     if (self = [super init]) {
-        self.supportedSchemes = [[NSMutableArray alloc] initWithArray:@[@"http", @"https"]];
+        self.supportedSchemes = [[NSMutableArray alloc] init];
+        self.nativePages = [[NSMutableDictionary alloc] init];
+        self.urlExportedNativePages = [[NSMutableArray alloc] init];
     }
     return self;
 }
 
-- (void)startupWithNavController:(UINavigationController *)navigationController
-               webContainerClass:(Class)webContainerClass
-                 nativeUrlScheme:(NSString *)nativeUrlScheme {
-    self.navigationController = navigationController;
-    self.h5ContainerClass = webContainerClass;
-    
-    if (nativeUrlScheme) {
-        [self.supportedSchemes addObject:nativeUrlScheme];
-        self.nativeUrlScheme = nativeUrlScheme;
+#pragma mark - Utils
+
+- (Class)classForPageName:(NSString *)pageName {
+    if (pageName.length > 0) {
+        NSString *pageClassName = self.nativePages[pageName];
+        if (pageClassName.length > 0) {
+            Class pageClass = NSClassFromString(pageClassName);
+            return pageClass;
+        }
+    }
+    return nil;
+}
+
+#define ClassForPageName(pageName) ([self classForPageName:(pageName)])
+
+- (NSString *)localPageNameFromUrl:(NSURL *)url {
+    if (!url) {
+        return nil;
     }
     
+    NSString *pageName;
+    
+    if (self.config.nativeUrlHostName.length > 0) {
+        if (![url.host isEqualToString:self.config.nativeUrlHostName]) {
+            return nil;
+        }
+        
+        pageName = url.path;
+    }
+    else {
+        pageName = url.host;
+    }
+    
+    if ([pageName hasPrefix:@"/"]) {
+        pageName = [pageName substringFromIndex:1];
+    }
+    
+    if (pageName.length == 0) {
+        return nil;
+    }
+    
+    return pageName;
+}
+
+- (BOOL)checkValidOfPageName:(NSString *)pageName className:(NSString *)className {
+    if (pageName.length == 0 || className.length == 0) {
+        return NO;
+    }
+    
+    return YES;
+}
+
+#pragma mark - Setup
+
+- (void)registerPage:(NSString *)pageName forViewControllerClass:(Class)clazz isUrlExported:(BOOL)isUrlExported {
+    if (pageName.length > 0 && clazz != nil) {
+        NSString *className = NSStringFromClass(clazz);
+        if ([self checkValidOfPageName:pageName className:className]) {
+            self.nativePages[pageName] = className;
+            if (isUrlExported) {
+                [self.urlExportedNativePages addObject:pageName];
+            }
+        }
+    }
+}
+
+- (UIViewController *)startupWithConfig:(UrlRouterConfig *)config andInitialPages:(NSArray *)pageNames {
+    [self.supportedSchemes removeAllObjects];
+    
+    if (config.webContainerClass) {
+        [self.supportedSchemes addObject:@"http"];
+        [self.supportedSchemes addObject:@"https"];
+    }
+    
+    if (config.nativeUrlScheme.length > 0) {
+        [self.supportedSchemes addObject:config.nativeUrlScheme];
+    }
+    
+    self.config = config;
+    
+    return [self startupWithInitialPages:pageNames];
+}
+
+- (UIViewController *)startupWithInitialPages:(NSArray *)pageNames {
+    // debug
     NSLog(@"Registered %@ pages total.", @(self.nativePages.count));
     [self.nativePages enumerateKeysAndObjectsUsingBlock:^(NSString *pageName, NSString *className, BOOL * _Nonnull stop) {
         NSLog(@"Page(%@) registered with class [%@].", pageName, className);
     }];
+    
+    if (!pageNames) {
+        return nil;
+    }
+    
+    if (self.config.mode == UrlRouterContainerModeOnlyNavigation) {
+        Class initialPageClass = nil;
+        NSString *pageName = nil;
+        if (pageNames.count > 0) {
+            pageName = pageNames.firstObject;
+            initialPageClass = ClassForPageName(pageName);
+        }
+        
+        if (self.config.navigationControllerClass && initialPageClass) {
+            UIViewController *contentVC = [[initialPageClass alloc] init];
+            contentVC.vcPageName = pageName;
+            self.navigationController = [[self.config.navigationControllerClass alloc] initWithRootViewController:contentVC];
+            return self.navigationController;
+        }
+    } else if (self.config.mode == UrlRouterContainerModeNavigationAndTabBar) {
+        if (self.config.navigationControllerClass && self.config.tabBarControllerClass) {
+            self.tabBarController = [[self.config.tabBarControllerClass alloc] init];
+            self.navigationController = [[self.config.navigationControllerClass alloc] initWithRootViewController:self.tabBarController];
+            
+            NSMutableArray *contentVCs = [[NSMutableArray alloc] init];
+            if (pageNames.count > 0) {
+                [pageNames enumerateObjectsUsingBlock:^(NSString *pageName, NSUInteger idx, BOOL * _Nonnull stop) {
+                    Class pageClass = ClassForPageName(pageName);
+                    if (pageClass) {
+                        UIViewController *vc = [[pageClass alloc] init];
+                        vc.vcPageName = pageName;
+                        [contentVCs addObject:vc];
+                    }
+                }];
+            }
+            self.tabBarController.viewControllers = contentVCs;
+            
+            return self.navigationController;
+        }
+    }
+    
+    return nil;
 }
+
+#pragma mark - Others
 
 - (BOOL)handleApplicationUrl:(NSURL *)url {
     NSLog(@"Handle url %@", url.absoluteString);
@@ -98,49 +320,19 @@
     }
 }
 
-- (NSMutableDictionary *)nativePages {
-    if (!_nativePages) {
-        _nativePages = [[NSMutableDictionary alloc] init];
-    }
-    
-    return _nativePages;
-}
-
-- (BOOL)checkValidOfPageName:(NSString *)pageName className:(NSString *)className {
-    if (pageName.length == 0 || className.length == 0) {
-        return NO;
-    }
-    
-    return YES;
-}
-
-- (void)registerPage:(NSString *)pageName forViewControllerClass:(Class)clazz {
-    if (pageName.length > 0 && clazz != nil) {
-        NSString *className = NSStringFromClass(clazz);
-        if ([self checkValidOfPageName:pageName className:className]) {
-            self.nativePages[pageName] = className;
-        }
-    }
-}
-
-+ (void)registerPage:(NSString *)pageName forViewControllerClass:(Class)clazz {
-    [[UrlRouter sharedInstance] registerPage:pageName forViewControllerClass:clazz];
-}
-
-/**
- *  页面是否存在
- */
 - (BOOL)isPageExists:(NSString *)pageName {
     if (pageName.length == 0) {
         return NO;
     }
     
-    // 检查下导航栈中是否有VC
-    NSMutableArray *vcs = [[NSMutableArray alloc] initWithArray:self.navigationController.viewControllers];
-    for (NSInteger index = vcs.count - 1; index >= 0; --index) {
-        UIViewController *vc = vcs[index];
-        
-        if ([pageName isEqualToString:[vc pageName]]) {
+    for (UIViewController *vc in self.navigationController.viewControllers) {
+        if ([vc.vcPageName isEqualToString:pageName]) {
+            return YES;
+        }
+    }
+    
+    for (UIViewController *vc in self.tabBarController.viewControllers) {
+        if ([vc.vcPageName isEqualToString:pageName]) {
             return YES;
         }
     }
@@ -148,68 +340,110 @@
     return NO;
 }
 
-- (NSString *)currentPageName {
-    return [self.navigationController.topViewController pageName];
-}
-
-#pragma mark - Open
-
-- (NSString *)pageNameFromUrl:(NSString *)urlString {
-    if (urlString.length > 0) {
-        NSRange searchedRange = [urlString rangeOfString:@"://"];
-        if (searchedRange.length > 0) {
-            urlString = [urlString substringFromIndex:searchedRange.location + searchedRange.length];
+- (UIViewController *)viewControllerMatchedWithPageName:(NSString *)pageName {
+    if (pageName.length == 0) {
+        return nil;
+    }
+    
+    for (UIViewController *vc in self.navigationController.viewControllers) {
+        if ([vc.vcPageName isEqualToString:pageName]) {
+            return vc;
         }
-        
-        searchedRange = [urlString rangeOfString:@"?"];
-        if (searchedRange.length > 0) {
-            urlString = [urlString substringToIndex:searchedRange.location];
+    }
+    
+    for (UIViewController *vc in self.tabBarController.viewControllers) {
+        if ([vc.vcPageName isEqualToString:pageName]) {
+            return vc;
         }
-        
-        return urlString;
     }
     
     return nil;
 }
 
-// 打开本地页面
+- (NSString *)topPageName {
+    if ([self.navigationController.topViewController isEqual:self.tabBarController]) {
+        return self.tabBarController.selectedViewController.vcPageName;
+    } else {
+        return self.navigationController.topViewController.vcPageName;
+    }
+}
+
+- (BOOL)isViewControllerAtTop:(UIViewController *)viewController {
+    if ([self.navigationController.topViewController isEqual:self.tabBarController]) {
+        return [self.tabBarController.selectedViewController isEqual:viewController];
+    } else {
+        return [self.navigationController.topViewController isEqual:viewController];
+    }
+}
+
+#pragma mark - Open native pages by name
+
 - (BOOL)openPage:(NSString *)pageName
       withParams:(NSDictionary *)params
-        callback:(UrlCallback)callback
+        callback:(FMUrlPopedCallback)callback
         animated:(BOOL)animated {
-    if (pageName.length == 0) return NO;
-    
-    NSString *className = self.nativePages[pageName];
-    if (className.length == 0) return NO;
-    
-    Class cls = NSClassFromString(className);
-    if (!cls) return NO;
-    
     if (!self.navigationController) return NO;
+    Class cls = ClassForPageName(pageName);
+    if (!cls) return NO;
     
     if ([cls isSingletonPage]) {
         for (UIViewController *vc in self.navigationController.viewControllers) {
-            if ([[vc pageName] isEqualToString:pageName]) {
+            if ([vc.vcPageName isEqualToString:pageName]) {
+                // pop to the singleton page
                 [self configVCBeforePush:vc params:params callback:callback];
-                [self.navigationController popToViewController:vc animated:animated];
+                [self popToViewController:vc animated:animated];
+                return YES;
+            }
+        }
+        
+        if (self.tabBarController) {
+            __block BOOL isContainedInTabBarController = NO;
+            __block NSInteger index = 0;
+            [self.tabBarController.viewControllers enumerateObjectsUsingBlock:^(__kindof UIViewController *obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                if ([obj.vcPageName isEqualToString:pageName]) {
+                    isContainedInTabBarController = YES;
+                    index = idx;
+                    *stop = YES;
+                }
+            }];
+            
+            if (isContainedInTabBarController) {
+                self.tabBarController.selectedIndex = index;
+                [self configVCBeforePush:self.tabBarController.viewControllers[index] params:params callback:callback];
+                [self popToViewController:self.tabBarController animated:animated];
                 return YES;
             }
         }
     }
     
+    // push a new page
     UIViewController *vc = [[cls alloc] init];
+    vc.vcPageName = pageName;
     [self configVCBeforePush:vc params:params callback:callback];
     [self.navigationController pushViewController:vc animated:animated];
+    
     return YES;
 }
 
 - (void)configVCBeforePush:(UIViewController *)vc
                     params:(NSDictionary *)params
-                  callback:(UrlCallback)callback {
+                  callback:(FMUrlPopedCallback)callback {
     vc.urlCallback = callback;
     vc.urlParams = params;
     [vc parseInputParams];
-    vc.fromPage = [self.navigationController.topViewController pageName];
+    vc.fromPage = self.navigationController.topViewController.vcPageName;
+}
+
+- (void)openPage:(NSString *)pageName {
+    [self openPage:pageName withParams:nil callback:nil animated:YES];
+}
+
+- (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params {
+    [self openPage:pageName withParams:params callback:nil animated:YES];
+}
+
+- (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params animated:(BOOL)animated {
+    [self openPage:pageName withParams:params callback:nil animated:animated];
 }
 
 + (void)openPage:(NSString *)pageName {
@@ -220,15 +454,22 @@
     [[UrlRouter sharedInstance] openPage:pageName withParams:params callback:nil animated:YES];
 }
 
-+ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params withCallback:(UrlCallback)callback {
++ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params animated:(BOOL)animated {
+    [[UrlRouter sharedInstance] openPage:pageName withParams:params callback:nil animated:animated];
+}
+
++ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params withCallback:(FMUrlPopedCallback)callback {
     [[UrlRouter sharedInstance] openPage:pageName withParams:params callback:callback animated:YES];
 }
+
+#pragma mark - Open pages by url
 
 - (BOOL)openLocalUrl:(NSURL *)url
           withParams:(NSDictionary *)params
             animated:(BOOL)animated
-        withCallback:(UrlCallback)callback {
-    if (!url) {
+        withCallback:(FMUrlPopedCallback)callback {
+    NSString *pageName = [self localPageNameFromUrl:url];
+    if (![self.urlExportedNativePages containsObject:pageName]) {
         return NO;
     }
     
@@ -243,16 +484,18 @@
         [allParams addEntriesFromDictionary:params];
     }
     
-    NSString *pageName = [self pageNameFromUrl:[url absoluteString]];
     return [self openPage:pageName withParams:allParams callback:callback animated:animated];
 }
 
-- (BOOL)openH5Url:(NSURL *)url withParams:(NSDictionary *)params animated:(BOOL)animated withCallback:(UrlCallback)callback {
-    if (self.h5ContainerClass && self.navigationController) {
-        UIViewController *vc = [[self.h5ContainerClass alloc] init];
+- (BOOL)openH5Url:(NSURL *)url withParams:(NSDictionary *)params animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback {
+    if (self.config.webContainerClass && self.navigationController) {
+        UIViewController *vc = [[self.config.webContainerClass alloc] init];
+        vc.vcPageName = [[url absoluteString] urlRouter_toBaseUrl];
         vc.h5Url = [url absoluteString];
         [self configVCBeforePush:vc params:params callback:callback];
         [self.navigationController pushViewController:vc animated:animated];
+        
+        return YES;
     }
     
     return NO;
@@ -261,7 +504,7 @@
 - (BOOL)openUrl:(NSURL *)url
      withParams:(NSDictionary *)params
        animated:(BOOL)animated
-   withCallback:(UrlCallback)callback {
+   withCallback:(FMUrlPopedCallback)callback {
     if (!url) {
         return NO;
     }
@@ -273,7 +516,7 @@
     }
     
     // local url
-    if ([scheme isEqualToString:self.nativeUrlScheme]) {
+    if ([scheme isEqualToString:self.config.nativeUrlScheme]) {
         return [self openLocalUrl:url withParams:params animated:animated withCallback:callback];
     }
     // http/https url
@@ -282,63 +525,100 @@
     }
 }
 
+- (BOOL)canOpenUrl:(NSURL *)url {
+    if (!url) {
+        return NO;
+    }
+    
+    NSString *scheme = url.scheme;
+    if (![self.supportedSchemes containsObject:scheme]) {
+        return NO;
+    }
+    
+    // local url
+    if ([scheme isEqualToString:self.config.nativeUrlScheme]) {
+        NSString *pageName = [self localPageNameFromUrl:url];
+        return pageName && [self.urlExportedNativePages containsObject:pageName];
+    }
+    // http/https url
+    else {
+        return YES;
+    }
+}
+
 + (BOOL)openUrl:(NSURL *)url {
-    return [self openUrl:url withParams:nil animated:YES withCallback:nil];
+    return [[UrlRouter sharedInstance] openUrl:url withParams:nil animated:YES withCallback:nil];
 }
 
 + (BOOL)openUrl:(NSURL *)url animated:(BOOL)animated {
-    return [self openUrl:url withParams:nil animated:animated withCallback:nil];
+    return [[UrlRouter sharedInstance] openUrl:url withParams:nil animated:animated withCallback:nil];
 }
 
-+ (BOOL)openPage:(NSString *)pageName withparams:(NSDictionary *)params animated:(BOOL)animated {
-    return [[UrlRouter sharedInstance] openPage:pageName withParams:params callback:nil animated:animated];
++ (BOOL)openUrl:(NSURL *)url animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback {
+    return [[UrlRouter sharedInstance] openUrl:url withParams:nil animated:animated withCallback:callback];
 }
 
-+ (BOOL)openUrl:(NSURL *)url animated:(BOOL)animated withCallback:(UrlCallback)callback {
-    return [self openUrl:url withParams:nil animated:animated withCallback:callback];
-}
-
-+ (BOOL)openUrl:(NSURL *)url withParams:(NSDictionary *)params {
-    return [self openUrl:url withParams:params animated:YES withCallback:nil];
-}
-
-+ (BOOL)openUrl:(NSURL *)url withParams:(NSDictionary *)params animated:(BOOL)animated withCallback:(UrlCallback)callback {
++ (BOOL)openUrl:(NSURL *)url withParams:(NSDictionary *)params animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback {
     return [[UrlRouter sharedInstance] openUrl:url withParams:params animated:animated withCallback:callback];
 }
 
 #pragma mark - Close
 
-/**
- *  延迟执行返回Callback
- */
-+ (void)invokeReturnCallbackAfterWithResult:(NSDictionary *)result ofViewController:(UIViewController *)viewController {
-    if (viewController) {
-        UrlCallback callback = viewController.urlCallback;
-        if (callback) {
++ (void)invokePopedCallback:(FMUrlPopedCallback)callback withResult:(NSDictionary *)result shouldDelay:(BOOL)shouldDelay {
+    if (callback) {
+        if (shouldDelay) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                callback(result);
+            });
+        } else {
+            dispatch_async(dispatch_get_main_queue(), ^{
                 callback(result);
             });
         }
     }
 }
 
-+ (void)closePage {
-    [self invokeReturnCallbackAfterWithResult:nil ofViewController:[UrlRouter sharedInstance].navigationController.topViewController];
-    [[UrlRouter sharedInstance].navigationController popViewControllerAnimated:YES];
+- (void)popToViewController:(UIViewController *)viewController animated:(BOOL)animated {
+    if (viewController) {
+        if ([viewController isEqual:self.navigationController.topViewController]) {
+            return;
+        }
+        
+        NSArray *popedVCs = [self.navigationController popToViewController:viewController animated:animated];
+        for (UIViewController *vc in popedVCs) {
+            [UrlRouter invokePopedCallback:vc.urlCallback withResult:nil shouldDelay:animated];
+        }
+    }
 }
 
-+ (void)closeSelfAndOtherPages:(NSArray<NSString *> *)otherPages {
+- (void)closePageWithResult:(NSDictionary *)result animated:(BOOL)animated {
+    UIViewController *vc = [self.navigationController popViewControllerAnimated:animated];
+    [UrlRouter invokePopedCallback:vc.urlCallback withResult:result shouldDelay:animated];
+}
+
++ (void)closePageWithResult:(NSDictionary *__nullable)result animated:(BOOL)animated {
+    [[UrlRouter sharedInstance] closePageWithResult:result animated:animated];
+}
+
++ (void)closePage {
+    [[UrlRouter sharedInstance] closePageWithResult:nil animated:YES];
+}
+
++ (void)closePageWithResult:(NSDictionary *)result {
+    [[UrlRouter sharedInstance] closePageWithResult:result animated:YES];
+}
+
+- (void)closeSelfAndOtherPages:(NSArray<NSString *> *)otherPages {
     if (otherPages && otherPages.count > 0) {
-        UINavigationController *navController = [UrlRouter sharedInstance].navigationController;
+        UINavigationController *navController = self.navigationController;
         
         // 检查下导航栈中是否有需要被移除的VC
         NSMutableArray *vcs = [[NSMutableArray alloc] initWithArray:navController.viewControllers];
         for (NSInteger index = vcs.count - 2; index >= 0; --index) {
             UIViewController *vc = vcs[index];
             
-            if ([otherPages containsObject:[vc pageName]]) {
+            if ([otherPages containsObject:vc.vcPageName]) {
                 [vcs removeObjectAtIndex:index];
-                break;
             }
         }
         if (vcs.count != navController.viewControllers.count) {
@@ -346,12 +626,12 @@
         }
     }
     
-    [self closePage];
+    [UrlRouter closePage];
 }
 
-+ (void)closePageWithResult:(NSDictionary *)result {
-    [self invokeReturnCallbackAfterWithResult:result  ofViewController:[UrlRouter sharedInstance].navigationController.topViewController];
-    [[UrlRouter sharedInstance].navigationController popViewControllerAnimated:YES];
++ (void)closeToPage:(NSString *)pageName {
+    UIViewController *viewController = [[UrlRouter sharedInstance] viewControllerMatchedWithPageName:pageName];
+    [[UrlRouter sharedInstance] popToViewController:viewController animated:YES];
 }
 
 @end
