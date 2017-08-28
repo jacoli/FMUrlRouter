@@ -7,118 +7,9 @@
 //
 
 #import "UrlRouter.h"
-#import "NSURL+UrlRouter.h"
-#import "NSString+UrlRouter.h"
+#import "UrlRouterUtils.h"
 #import <objc/runtime.h>
-
-@interface UIViewController (UrlRouter_inner)
-
-/**
- *  当前页面名称，必选，由UrlRouter统一赋值
- */
-@property (nonatomic, copy) NSString *vcPageName;
-
-/**
- *  额外参数，可选
- */
-@property (nonatomic, strong) NSDictionary *urlParams;
-
-/**
- *  上个页面名称，必选
- */
-@property (nonatomic, copy) NSString *fromPage;
-
-/**
- *  url链接地址，可选
- */
-@property (nonatomic, copy) NSString *h5Url;
-
-/**
- *  回调Block，可选
- */
-@property (nonatomic, copy) FMUrlPopedCallback urlCallback;
-
-- (void)parseInputParams;
-
-@end
-
-@implementation UIViewController (UrlRouter)
-
-+ (BOOL)isSingletonPage {
-    return NO;
-}
-
-@end
-
-@implementation UIViewController (UrlRouter_inner)
-
-static int kVCPageName;
-- (NSString *)vcPageName {
-    return objc_getAssociatedObject(self, &kVCPageName);
-}
-
-- (void)setVcPageName:(NSString *)vcPageName {
-    objc_setAssociatedObject(self, &kVCPageName, vcPageName, OBJC_ASSOCIATION_COPY_NONATOMIC);
-}
-
-static int kUrlParams;
-- (NSDictionary *)urlParams {
-    NSDictionary *params = objc_getAssociatedObject(self, &kUrlParams);
-    return params ?: @{};
-}
-
-- (void)setUrlParams:(NSDictionary *)urlParams {
-    objc_setAssociatedObject(self, &kUrlParams, urlParams, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-static int kFromPage;
-- (NSString *)fromPage {
-    return objc_getAssociatedObject(self, &kFromPage);
-}
-
-- (void)setFromPage:(NSString *)fromPage {
-    objc_setAssociatedObject(self, &kFromPage, fromPage, OBJC_ASSOCIATION_COPY_NONATOMIC);
-}
-
-static int kUrlCallback;
-- (FMUrlPopedCallback)urlCallback {
-    return objc_getAssociatedObject(self, &kUrlCallback);
-}
-
-- (void)setUrlCallback:(FMUrlPopedCallback)urlCallback {
-    objc_setAssociatedObject(self, &kUrlCallback, urlCallback, OBJC_ASSOCIATION_COPY_NONATOMIC);
-}
-
-static int kH5Url;
-- (NSString *)h5Url {
-    return objc_getAssociatedObject(self, &kH5Url);
-}
-
-- (void)setH5Url:(NSString *)h5Url {
-    if (h5Url && ![h5Url isKindOfClass:[NSString class]]) {
-        if ([h5Url isKindOfClass:[NSURL class]]) {
-            h5Url = [((NSURL *)h5Url) absoluteString];
-        }
-        else {
-            return;
-        }
-    }
-    
-    objc_setAssociatedObject(self, &kH5Url, h5Url, OBJC_ASSOCIATION_COPY_NONATOMIC);
-}
-
-- (void)parseInputParams {
-    if (self.urlParams) {
-        [self.urlParams enumerateKeysAndObjectsUsingBlock:^(NSString *propertyName, id obj, BOOL *stop) {
-            [self setValue:obj forKeyPath:propertyName];
-        }];
-    }
-}
-
-- (void)setValue:(nullable id)value forUndefinedKey:(NSString *)key {
-}
-
-@end
+#import "UIViewController+UrlRouterPrivate.h"
 
 @interface UrlRouter ()
 
@@ -229,13 +120,11 @@ static int kH5Url;
 #pragma mark - Setup
 
 - (void)registerPage:(NSString *)pageName forViewControllerClass:(Class)clazz isUrlExported:(BOOL)isUrlExported {
-    if (pageName.length > 0 && clazz != nil) {
-        NSString *className = NSStringFromClass(clazz);
-        if ([self checkValidOfPageName:pageName className:className]) {
-            self.nativePages[pageName] = className;
-            if (isUrlExported) {
-                [self.urlExportedNativePages addObject:pageName];
-            }
+    NSString *className = NSStringFromClass(clazz);
+    if ([self checkValidOfPageName:pageName className:className]) {
+        self.nativePages[pageName] = className;
+        if (isUrlExported) {
+            [self.urlExportedNativePages addObject:pageName];
         }
     }
 }
@@ -258,11 +147,12 @@ static int kH5Url;
 }
 
 - (UIViewController *)startupWithInitialPages:(NSArray *)pageNames {
-    // debug
+#if defined(DEBUG) && DEBUG
     NSLog(@"Registered %@ pages total.", @(self.nativePages.count));
     [self.nativePages enumerateKeysAndObjectsUsingBlock:^(NSString *pageName, NSString *className, BOOL * _Nonnull stop) {
         NSLog(@"Page(%@) registered with class [%@].", pageName, className);
     }];
+#endif
     
     if (!pageNames) {
         return nil;
@@ -308,17 +198,6 @@ static int kH5Url;
 }
 
 #pragma mark - Others
-
-- (BOOL)handleApplicationUrl:(NSURL *)url {
-    NSLog(@"Handle url %@", url.absoluteString);
-    if ([self openUrl:url withParams:nil animated:YES withCallback:nil]) {
-        return YES;
-    }
-    else {
-        NSLog(@"Failed response to url.");
-        return NO;
-    }
-}
 
 - (BOOL)isPageExists:(NSString *)pageName {
     if (pageName.length == 0) {
@@ -378,10 +257,14 @@ static int kH5Url;
 
 #pragma mark - Open native pages by name
 
-- (BOOL)openPage:(NSString *)pageName
-      withParams:(NSDictionary *)params
-        callback:(FMUrlPopedCallback)callback
-        animated:(BOOL)animated {
+- (void)configVCBeforePush:(UIViewController *)vc params:(NSDictionary *)params callback:(FMUrlPopedCallback)callback {
+    vc.urlCallback = callback;
+    vc.urlParams = params;
+    [vc parseInputParams];
+    vc.fromPage = self.navigationController.topViewController.vcPageName;
+}
+
+- (BOOL)openPage:(NSString *)pageName withParams:(NSDictionary * __nullable)params callback:(FMUrlPopedCallback __nullable)callback animated:(BOOL)animated {
     if (!self.navigationController) return NO;
     Class cls = ClassForPageName(pageName);
     if (!cls) return NO;
@@ -425,24 +308,15 @@ static int kH5Url;
     return YES;
 }
 
-- (void)configVCBeforePush:(UIViewController *)vc
-                    params:(NSDictionary *)params
-                  callback:(FMUrlPopedCallback)callback {
-    vc.urlCallback = callback;
-    vc.urlParams = params;
-    [vc parseInputParams];
-    vc.fromPage = self.navigationController.topViewController.vcPageName;
-}
-
 - (void)openPage:(NSString *)pageName {
     [self openPage:pageName withParams:nil callback:nil animated:YES];
 }
 
-- (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params {
+- (void)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params {
     [self openPage:pageName withParams:params callback:nil animated:YES];
 }
 
-- (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params animated:(BOOL)animated {
+- (void)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params animated:(BOOL)animated {
     [self openPage:pageName withParams:params callback:nil animated:animated];
 }
 
@@ -450,21 +324,36 @@ static int kH5Url;
     [[UrlRouter sharedInstance] openPage:pageName withParams:nil callback:nil animated:YES];
 }
 
-+ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params {
++ (void)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params {
     [[UrlRouter sharedInstance] openPage:pageName withParams:params callback:nil animated:YES];
 }
 
-+ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params animated:(BOOL)animated {
++ (void)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params animated:(BOOL)animated {
     [[UrlRouter sharedInstance] openPage:pageName withParams:params callback:nil animated:animated];
 }
 
-+ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params withCallback:(FMUrlPopedCallback)callback {
++ (void)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params withCallback:(FMUrlPopedCallback __nullable)callback {
     [[UrlRouter sharedInstance] openPage:pageName withParams:params callback:callback animated:YES];
 }
 
 #pragma mark - Open pages by url
 
-- (BOOL)openLocalUrl:(NSURL *)url
+- (BOOL)canOpenUrl:(NSURL *)url {
+    if ([self.supportedSchemes containsObject:url.scheme]) {
+        if ([url.scheme isEqualToString:self.config.nativeUrlScheme]) {
+            // local url
+            NSString *pageName = [self localPageNameFromUrl:url];
+            return pageName && [self.urlExportedNativePages containsObject:pageName];
+        } else {
+            // http/https url
+            return YES;
+        }
+    }
+    
+    return NO;
+}
+
+- (BOOL)_openLocalUrl:(NSURL *)url
           withParams:(NSDictionary *)params
             animated:(BOOL)animated
         withCallback:(FMUrlPopedCallback)callback {
@@ -487,7 +376,7 @@ static int kH5Url;
     return [self openPage:pageName withParams:allParams callback:callback animated:animated];
 }
 
-- (BOOL)openH5Url:(NSURL *)url withParams:(NSDictionary *)params animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback {
+- (BOOL)_openH5Url:(NSURL *)url withParams:(NSDictionary *)params animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback {
     if (self.config.webContainerClass && self.navigationController) {
         UIViewController *vc = [[self.config.webContainerClass alloc] init];
         vc.vcPageName = [[url absoluteString] urlRouter_toBaseUrl];
@@ -501,65 +390,28 @@ static int kH5Url;
     return NO;
 }
 
-- (BOOL)openUrl:(NSURL *)url
-     withParams:(NSDictionary *)params
-       animated:(BOOL)animated
-   withCallback:(FMUrlPopedCallback)callback {
-    if (!url) {
-        return NO;
+- (BOOL)_openPageWithUrl:(NSURL *)url params:(NSDictionary *__nullable)params callback:(FMUrlPopedCallback __nullable)callback animated:(BOOL)animated {
+    if ([self.supportedSchemes containsObject:url.scheme]) {
+        if ([url.scheme isEqualToString:self.config.nativeUrlScheme]) {
+            return [self _openLocalUrl:url withParams:params animated:animated withCallback:callback];
+        } else {
+            return [self _openH5Url:url withParams:params animated:animated withCallback:callback];
+        }
     }
     
-    NSString *scheme = url.scheme;
-    
-    if (![self.supportedSchemes containsObject:scheme]) {
-        return NO;
-    }
-    
-    // local url
-    if ([scheme isEqualToString:self.config.nativeUrlScheme]) {
-        return [self openLocalUrl:url withParams:params animated:animated withCallback:callback];
-    }
-    // http/https url
-    else {
-        return [self openH5Url:url withParams:params animated:animated withCallback:callback];
-    }
+    return NO;
 }
 
-- (BOOL)canOpenUrl:(NSURL *)url {
-    if (!url) {
-        return NO;
-    }
-    
-    NSString *scheme = url.scheme;
-    if (![self.supportedSchemes containsObject:scheme]) {
-        return NO;
-    }
-    
-    // local url
-    if ([scheme isEqualToString:self.config.nativeUrlScheme]) {
-        NSString *pageName = [self localPageNameFromUrl:url];
-        return pageName && [self.urlExportedNativePages containsObject:pageName];
-    }
-    // http/https url
-    else {
-        return YES;
-    }
+- (BOOL)openPageWithUrl:(NSURL *)url {
+    return [self _openPageWithUrl:url params:nil callback:nil animated:YES];
 }
 
-+ (BOOL)openUrl:(NSURL *)url {
-    return [[UrlRouter sharedInstance] openUrl:url withParams:nil animated:YES withCallback:nil];
+- (BOOL)openPageWithUrl:(NSURL *)url animated:(BOOL)animated {
+    return [self _openPageWithUrl:url params:nil callback:nil animated:animated];
 }
 
-+ (BOOL)openUrl:(NSURL *)url animated:(BOOL)animated {
-    return [[UrlRouter sharedInstance] openUrl:url withParams:nil animated:animated withCallback:nil];
-}
-
-+ (BOOL)openUrl:(NSURL *)url animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback {
-    return [[UrlRouter sharedInstance] openUrl:url withParams:nil animated:animated withCallback:callback];
-}
-
-+ (BOOL)openUrl:(NSURL *)url withParams:(NSDictionary *)params animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback {
-    return [[UrlRouter sharedInstance] openUrl:url withParams:params animated:animated withCallback:callback];
+- (BOOL)openPageWithUrl:(NSURL *)url params:(NSDictionary *__nullable)params callback:(FMUrlPopedCallback __nullable)callback animated:(BOOL)animated {
+    return [self _openPageWithUrl:url params:params callback:callback animated:YES];
 }
 
 #pragma mark - Close

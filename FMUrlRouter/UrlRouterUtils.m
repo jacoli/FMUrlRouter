@@ -1,12 +1,26 @@
 //
-//  NSURL+UrlRouter.m
-//  Fanmei
+//  UrlRouterUtils.m
+//  Examples
 //
-//  Created by 李传格 on 16/8/10.
-//  Copyright © 2016年 Fanmei. All rights reserved.
+//  Created by 李传格 on 2017/8/28.
+//  Copyright © 2017年 fanmei. All rights reserved.
 //
 
-#import "NSURL+UrlRouter.h"
+#import "UrlRouterUtils.h"
+
+@implementation NSString (UrlRouter)
+
+- (NSString *)urlRouter_toBaseUrl {
+    NSRange rangeOfString = [self rangeOfString:@"?"];
+    if (rangeOfString.length > 0) {
+        return [self substringToIndex:rangeOfString.location];
+    }
+    else {
+        return self;
+    }
+}
+
+@end
 
 @implementation NSURL (UrlRouter)
 

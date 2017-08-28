@@ -8,50 +8,12 @@
 
 #import <UIKit/UIKit.h>
 #import "UrlRouterConfig.h"
+#import "UIViewController+UrlRouter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 /**
- *  页面Pop的Callback回调
- */
-typedef void (^FMUrlPopedCallback)(NSDictionary * _Nullable result);
-
-@interface UIViewController (UrlRouter)
-
-/**
- *  当前页面名称，不为空
- */
-@property (nonatomic, copy, readonly) NSString *vcPageName;
-
-/**
- *  额外参数，可选
- */
-@property (nonatomic, strong, readonly) NSDictionary *urlParams;
-
-/**
- *  上个页面名称，必选
- */
-@property (nonatomic, copy, readonly) NSString *fromPage;
-
-/**
- *  url链接地址，可选
- */
-@property (nonatomic, copy, readonly) NSString *h5Url;
-
-/**
- *  回调Block，可选
- */
-@property (nonatomic, copy, readonly) FMUrlPopedCallback urlCallback;
-
-/**
- *  是否允许在导航栈中存在多个实例
- */
-+ (BOOL)isSingletonPage;
-
-@end
-
-/**
- Native pages or H5 pages can decoupled by `UrlRouter` based on url.
+ Native pages or H5 pages can decoupled by `UrlRouter` based on url or page name.
  */
 @interface UrlRouter : NSObject
 
@@ -75,7 +37,7 @@ typedef void (^FMUrlPopedCallback)(NSDictionary * _Nullable result);
  @param pageNames intial pages will created auto by the names, and names must registered.
  @return instance of root container
  */
-- (UIViewController *)startupWithConfig:(UrlRouterConfig *_Nonnull)config andInitialPages:(NSArray *)pageNames;
+- (UIViewController *)startupWithConfig:(UrlRouterConfig *)config andInitialPages:(NSArray *)pageNames;
 
 #pragma mark - Container instance
 
@@ -84,13 +46,6 @@ typedef void (^FMUrlPopedCallback)(NSDictionary * _Nullable result);
 @property (nullable, nonatomic, strong, readonly) UITabBarController *tabBarController;
 
 #pragma mark - Others
-
-/**
- *  处理App Url跳转
- *
- *  @return 成功处理返回YES，否则返回NO
- */
-- (BOOL)handleApplicationUrl:(NSURL *)url;
 
 /**
  *  根据页面名称判断页面是否存在
@@ -110,29 +65,21 @@ typedef void (^FMUrlPopedCallback)(NSDictionary * _Nullable result);
 #pragma mark - Open native pages by name
 
 - (void)openPage:(NSString *)pageName;
-- (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params;
-- (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params animated:(BOOL)animated;
-- (BOOL)openPage:(NSString *)pageName withParams:(NSDictionary *)params callback:(FMUrlPopedCallback)callback animated:(BOOL)animated;
-
-/**
- *  打开Native页面
- */
+- (void)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params;
+- (void)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params animated:(BOOL)animated;
+- (BOOL)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params callback:(FMUrlPopedCallback __nullable)callback animated:(BOOL)animated;
 + (void)openPage:(NSString *)pageName;
-+ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params;
-+ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params animated:(BOOL)animated;
-+ (void)openPage:(NSString *)pageName withParams:(NSDictionary *)params withCallback:(FMUrlPopedCallback)callback;
++ (void)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params;
++ (void)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params animated:(BOOL)animated;
++ (void)openPage:(NSString *)pageName withParams:(NSDictionary *__nullable)params withCallback:(FMUrlPopedCallback __nullable)callback;
 
 #pragma mark - Open pages by url
 
 - (BOOL)canOpenUrl:(NSURL *)url;
 
-/**
- *  打开Url链接
- */
-+ (BOOL)openUrl:(NSURL *)url;
-+ (BOOL)openUrl:(NSURL *)url animated:(BOOL)animated;
-+ (BOOL)openUrl:(NSURL *)url animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback;
-+ (BOOL)openUrl:(NSURL *)url withParams:(NSDictionary *)params animated:(BOOL)animated withCallback:(FMUrlPopedCallback)callback;
+- (BOOL)openPageWithUrl:(NSURL *)url;
+- (BOOL)openPageWithUrl:(NSURL *)url animated:(BOOL)animated;
+- (BOOL)openPageWithUrl:(NSURL *)url params:(NSDictionary *__nullable)params callback:(FMUrlPopedCallback __nullable)callback animated:(BOOL)animated;
 
 #pragma mark - Close
 

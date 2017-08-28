@@ -34,7 +34,7 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     if (indexPath.row == 0) {
-        [UrlRouter openUrl:[NSURL URLWithString:@"http://blog.csdn.net/lengshengren/article/details/12616217"]];
+        [[UrlRouter sharedInstance] openPageWithUrl:[NSURL URLWithString:@"http://blog.csdn.net/lengshengren/article/details/12616217"]];
     } else if (indexPath.row == 1) {
         [[UrlRouter sharedInstance] openPage:@"page2"];
     }

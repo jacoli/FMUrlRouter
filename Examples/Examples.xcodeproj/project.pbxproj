@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B719A88D1F53BA160064357D /* UrlRouterUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = B719A88C1F53BA160064357D /* UrlRouterUtils.m */; };
+		B7A2ACB01F53B7FD00F1FA7B /* UIViewController+UrlRouter.m in Sources */ = {isa = PBXBuildFile; fileRef = B7A2ACAB1F53B7FD00F1FA7B /* UIViewController+UrlRouter.m */; };
+		B7A2ACB11F53B7FD00F1FA7B /* UIViewController+UrlRouterPrivate.m in Sources */ = {isa = PBXBuildFile; fileRef = B7A2ACAD1F53B7FD00F1FA7B /* UIViewController+UrlRouterPrivate.m */; };
+		B7A2ACB21F53B7FD00F1FA7B /* UrlRouterDefines.m in Sources */ = {isa = PBXBuildFile; fileRef = B7A2ACAF1F53B7FD00F1FA7B /* UrlRouterDefines.m */; };
 		B7F398221F022C8900631A65 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = B7F398211F022C8900631A65 /* main.m */; };
 		B7F398251F022C8900631A65 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = B7F398241F022C8900631A65 /* AppDelegate.m */; };
 		B7F398281F022C8900631A65 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B7F398271F022C8900631A65 /* ViewController.m */; };
@@ -15,8 +19,6 @@
 		B7F398301F022C8900631A65 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B7F3982E1F022C8900631A65 /* LaunchScreen.storyboard */; };
 		B7F3983B1F022C8900631A65 /* ExamplesTests.m in Sources */ = {isa = PBXBuildFile; fileRef = B7F3983A1F022C8900631A65 /* ExamplesTests.m */; };
 		B7F398461F022C8900631A65 /* ExamplesUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = B7F398451F022C8900631A65 /* ExamplesUITests.m */; };
-		B7F3985C1F022CA400631A65 /* NSString+UrlRouter.m in Sources */ = {isa = PBXBuildFile; fileRef = B7F398551F022CA400631A65 /* NSString+UrlRouter.m */; };
-		B7F3985D1F022CA400631A65 /* NSURL+UrlRouter.m in Sources */ = {isa = PBXBuildFile; fileRef = B7F398571F022CA400631A65 /* NSURL+UrlRouter.m */; };
 		B7F3985E1F022CA400631A65 /* UrlRouter.m in Sources */ = {isa = PBXBuildFile; fileRef = B7F398591F022CA400631A65 /* UrlRouter.m */; };
 		B7F3985F1F022CA400631A65 /* UrlRouterConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = B7F3985B1F022CA400631A65 /* UrlRouterConfig.m */; };
 		B7F398621F02354000631A65 /* MyTableViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B7F398611F02354000631A65 /* MyTableViewController.m */; };
@@ -40,6 +42,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B719A88B1F53BA160064357D /* UrlRouterUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UrlRouterUtils.h; sourceTree = "<group>"; };
+		B719A88C1F53BA160064357D /* UrlRouterUtils.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UrlRouterUtils.m; sourceTree = "<group>"; };
+		B7A2ACAA1F53B7FD00F1FA7B /* UIViewController+UrlRouter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIViewController+UrlRouter.h"; sourceTree = "<group>"; };
+		B7A2ACAB1F53B7FD00F1FA7B /* UIViewController+UrlRouter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIViewController+UrlRouter.m"; sourceTree = "<group>"; };
+		B7A2ACAC1F53B7FD00F1FA7B /* UIViewController+UrlRouterPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIViewController+UrlRouterPrivate.h"; sourceTree = "<group>"; };
+		B7A2ACAD1F53B7FD00F1FA7B /* UIViewController+UrlRouterPrivate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIViewController+UrlRouterPrivate.m"; sourceTree = "<group>"; };
+		B7A2ACAE1F53B7FD00F1FA7B /* UrlRouterDefines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UrlRouterDefines.h; sourceTree = "<group>"; };
+		B7A2ACAF1F53B7FD00F1FA7B /* UrlRouterDefines.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UrlRouterDefines.m; sourceTree = "<group>"; };
 		B7F3981D1F022C8900631A65 /* Examples.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Examples.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B7F398211F022C8900631A65 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		B7F398231F022C8900631A65 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -56,10 +66,6 @@
 		B7F398411F022C8900631A65 /* ExamplesUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ExamplesUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B7F398451F022C8900631A65 /* ExamplesUITests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ExamplesUITests.m; sourceTree = "<group>"; };
 		B7F398471F022C8900631A65 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		B7F398541F022CA400631A65 /* NSString+UrlRouter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+UrlRouter.h"; sourceTree = "<group>"; };
-		B7F398551F022CA400631A65 /* NSString+UrlRouter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSString+UrlRouter.m"; sourceTree = "<group>"; };
-		B7F398561F022CA400631A65 /* NSURL+UrlRouter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSURL+UrlRouter.h"; sourceTree = "<group>"; };
-		B7F398571F022CA400631A65 /* NSURL+UrlRouter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSURL+UrlRouter.m"; sourceTree = "<group>"; };
 		B7F398581F022CA400631A65 /* UrlRouter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UrlRouter.h; sourceTree = "<group>"; };
 		B7F398591F022CA400631A65 /* UrlRouter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UrlRouter.m; sourceTree = "<group>"; };
 		B7F3985A1F022CA400631A65 /* UrlRouterConfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UrlRouterConfig.h; sourceTree = "<group>"; };
@@ -161,14 +167,18 @@
 		B7F398531F022CA400631A65 /* FMUrlRouter */ = {
 			isa = PBXGroup;
 			children = (
-				B7F398541F022CA400631A65 /* NSString+UrlRouter.h */,
-				B7F398551F022CA400631A65 /* NSString+UrlRouter.m */,
-				B7F398561F022CA400631A65 /* NSURL+UrlRouter.h */,
-				B7F398571F022CA400631A65 /* NSURL+UrlRouter.m */,
+				B7A2ACAA1F53B7FD00F1FA7B /* UIViewController+UrlRouter.h */,
+				B7A2ACAB1F53B7FD00F1FA7B /* UIViewController+UrlRouter.m */,
+				B7A2ACAC1F53B7FD00F1FA7B /* UIViewController+UrlRouterPrivate.h */,
+				B7A2ACAD1F53B7FD00F1FA7B /* UIViewController+UrlRouterPrivate.m */,
 				B7F398581F022CA400631A65 /* UrlRouter.h */,
 				B7F398591F022CA400631A65 /* UrlRouter.m */,
 				B7F3985A1F022CA400631A65 /* UrlRouterConfig.h */,
 				B7F3985B1F022CA400631A65 /* UrlRouterConfig.m */,
+				B7A2ACAE1F53B7FD00F1FA7B /* UrlRouterDefines.h */,
+				B7A2ACAF1F53B7FD00F1FA7B /* UrlRouterDefines.m */,
+				B719A88B1F53BA160064357D /* UrlRouterUtils.h */,
+				B719A88C1F53BA160064357D /* UrlRouterUtils.m */,
 			);
 			name = FMUrlRouter;
 			path = ../FMUrlRouter;
@@ -312,11 +322,13 @@
 			files = (
 				B7F398281F022C8900631A65 /* ViewController.m in Sources */,
 				B7F398251F022C8900631A65 /* AppDelegate.m in Sources */,
+				B7A2ACB01F53B7FD00F1FA7B /* UIViewController+UrlRouter.m in Sources */,
+				B7A2ACB21F53B7FD00F1FA7B /* UrlRouterDefines.m in Sources */,
 				B7F3985E1F022CA400631A65 /* UrlRouter.m in Sources */,
 				B7F3985F1F022CA400631A65 /* UrlRouterConfig.m in Sources */,
-				B7F3985C1F022CA400631A65 /* NSString+UrlRouter.m in Sources */,
 				B7F398221F022C8900631A65 /* main.m in Sources */,
-				B7F3985D1F022CA400631A65 /* NSURL+UrlRouter.m in Sources */,
+				B719A88D1F53BA160064357D /* UrlRouterUtils.m in Sources */,
+				B7A2ACB11F53B7FD00F1FA7B /* UIViewController+UrlRouterPrivate.m in Sources */,
 				B7F398621F02354000631A65 /* MyTableViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -557,6 +569,7 @@
 				B7F3984C1F022C8900631A65 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		B7F3984D1F022C8900631A65 /* Build configuration list for PBXNativeTarget "ExamplesTests" */ = {
 			isa = XCConfigurationList;
@@ -565,6 +578,7 @@
 				B7F3984F1F022C8900631A65 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		B7F398501F022C8900631A65 /* Build configuration list for PBXNativeTarget "ExamplesUITests" */ = {
 			isa = XCConfigurationList;
@@ -573,6 +587,7 @@
 				B7F398521F022C8900631A65 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
